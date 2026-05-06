@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Study Planner AI{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-center">
+    <h1 class="text-3xl font-bold">Dashboard</h1>
+    <a href="{% url 'create_plan' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold">
+        + Create New Plan
+    </a>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="text-gray-500 text-sm font-semibold uppercase">Active Plans</div>
+        <div class="text-3xl font-bold text-indigo-600 mt-2">{{ total_plans }}</div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="text-gray-500 text-sm font-semibold uppercase">Topics Completed</div>
+        <div class="text-3xl font-bold text-green-600 mt-2">{{ completed_topics }}/{{ total_topics }}</div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="text-gray-500 text-sm font-semibold uppercase">Hours Studied</div>
+        <div class="text-3xl font-bold text-blue-600 mt-2">{{ total_hours }}h</div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="text-gray-500 text-sm font-semibold uppercase">Current Streak</div>
+        <div class="text-3xl font-bold text-orange-600 mt-2">{{ streak }} days 🔥</div>
+    </div>
+</div>
+
+<!-- Study Plans -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">Your Study Plans</h2>
+    
+    {% if study_plans %}
+        <div class="space-y-4">
+            {% for plan in study_plans %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold text-gray-900">
+                            <a href="{% url 'plan_detail' plan.pk %}" class="hover:text-indigo-600">
+                                {{ plan.title }}
+                            </a>
+                        </h3>
+                        <p class="text-gray-600 mt-1">{{ plan.get_domain_display }}</p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            Started: {{ plan.start_date|date:"M d, Y" }}
+                        </p>
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-indigo-600">
+                            {{ plan.get_completion_percentage }}%
+                        </div>
+                        <div class="text-sm text-gray-500">Complete</div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="mt-4 bg-gray-200 rounded-full h-2">
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ plan.get_completion_percentage }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-12">
+            <p class="text-gray-500 text-lg mb-4">No study plans yet</p>
+            <a href="{% url 'create_plan' %}" class="text-indigo-600 hover:text-indigo-700 font-semibold">
+                Create your first plan →
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Recent Activity -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-2xl font-bold mb-4">Recent Activity</h2>
+    
+    {% if recent_logs %}
+        <div class="space-y-3">
+            {% for log in recent_logs %}
+            <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                <div>
+                    <div class="font-semibold">{{ log.study_plan.title }}</div>
+                    <div class="text-sm text-gray-500">{{ log.date|date:"M d, Y" }}</div>
+                </div>
+                <div class="text-right">
+                    <div class="font-semibold text-indigo-600">{{ log.hours_studied }}h</div>
+                    {% if log.mood %}
+                        <div class="text-sm">Mood: {{ log.mood }}/5</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-gray-500 text-center py-8">No activity recorded yet</p>
+    {% endif %}
+</div>
+{% endblock %}

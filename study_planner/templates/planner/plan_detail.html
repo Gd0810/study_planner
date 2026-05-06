@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ study_plan.title }} - Study Planner AI{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex justify-between items-start mb-4">
+        <div>
+            <h1 class="text-3xl font-bold">{{ study_plan.title }}</h1>
+            <p class="text-gray-600 mt-2">{{ study_plan.get_domain_display }}</p>
+            <p class="text-sm text-gray-500 mt-1">
+                Started: {{ study_plan.start_date|date:"M d, Y" }}
+                {% if study_plan.target_end_date %}
+                    | Target: {{ study_plan.target_end_date|date:"M d, Y" }}
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="text-right">
+            <div class="text-4xl font-bold text-indigo-600">{{ completion_percentage }}%</div>
+            <div class="text-sm text-gray-500">Complete</div>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div class="bg-gray-200 rounded-full h-4 mb-4">
+        <div class="bg-indigo-600 h-4 rounded-full transition-all duration-300" 
+             style="width: {{ completion_percentage }}%"
+             id="main-progress-bar"></div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-lg shadow">
+            <div class="text-sm text-gray-500">Total Modules</div>
+            <div class="text-2xl font-bold">{{ modules|length }}</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <div class="text-sm text-gray-500">Total Topics</div>
+            <div class="text-2xl font-bold" id="total-topics">-</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <div class="text-sm text-gray-500">Time Spent</div>
+            <div class="text-2xl font-bold">{{ total_time|floatformat:0 }} min</div>
+        </div>
+    </div>
+</div>
+
+<!-- Modules and Topics -->
+<div class="space-y-6">
+    {% for module in modules %}
+    <div class="bg-white rounded-lg shadow-md overflow-hidden" x-data="{ open: true }">
+        <!-- Module Header -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 cursor-pointer" @click="open = !open">
+            <div class="flex justify-between items-center text-white">
+                <div class="flex-1">
+                    <h2 class="text-2xl font-bold">{{ module.title }}</h2>
+                    <p class="text-indigo-100 mt-1">{{ module.description }}</p>
+                    <p class="text-sm text-indigo-200 mt-2">
+                        Estimated: {{ module.estimated_hours }} hours
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold">{{ module.get_completion_percentage }}%</div>
+                    <div class="text-sm text-indigo-200">Complete</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Topics List -->
+        <div x-show="open" x-transition class="p-6">
+            <div class="space-y-3">
+                {% for topic in module.topics.all %}
+                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition" 
+                     x-data="{ showDetails: false, isCompleted: {{ topic.is_completed|yesno:'true,false' }} }">
+                    
+                    <div class="flex items-start gap-4">
+                        <!-- Checkbox -->
+                        <div class="flex-shrink-0 mt-1">
+                            <input 
+                                type="checkbox" 
+                                :checked="isCompleted"
+                                @change="toggleTopicComplete({{ topic.id }}, $event)"
+                                class="w-6 h-6 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                            >
+                        </div>
+                        
+                        <!-- Topic Info -->
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-lg font-semibold" 
+                                        :class="{ 'line-through text-gray-500': isCompleted }">
+                                        {{ topic.title }}
+                                    </h3>
+                                    <p class="text-sm text-gray-600 mt-1">{{ topic.description }}</p>
+                                </div>
+                                
+                                <div class="text-right ml-4">
+                                    <div class="text-sm text-gray-500">
+                                        ⏱️ {{ topic.estimated_minutes }} min
+                                    </div>
+                                    {% if topic.time_spent_minutes > 0 %}
+                                    <div class="text-xs text-green-600 font-semibold">
+                                        ✓ Spent: {{ topic.time_spent_minutes }} min
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="flex gap-2 mt-3">
+                                <button 
+                                    @click="showDetails = !showDetails"
+                                    class="text-sm text-indigo-600 hover:text-indigo-700 font-semibold"
+                                >
+                                    <span x-show="!showDetails">Show Details ▼</span>
+                                    <span x-show="showDetails" x-cloak>Hide Details ▲</span>
+                                </button>
+                                
+                                <button 
+                                    onclick="startStudySession({{ topic.id }})"
+                                    class="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
+                                >
+                                    ▶️ Start Session
+                                </button>
+                                
+                                <a 
+                                    href="{% url 'add_resource' topic.id %}"
+                                    class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                                >
+                                    📎 Add Resource
+                                </a>
+                                
+                                <a 
+                                    href="{% url 'generate_quiz' topic.id %}"
+                                    class="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200"
+                                >
+                                    🧠 Quiz Me
+                                </a>
+                            </div>
+                            
+                            <!-- Details Section -->
+                            <div x-show="showDetails" x-transition class="mt-4 pt-4 border-t border-gray-200">
+                                <!-- Resources -->
+                                {% if topic.resources.all %}
+                                <div class="mb-4">
+                                    <h4 class="font-semibold text-gray-700 mb-2">📚 Resources:</h4>
+                                    <div class="space-y-2">
+                                        {% for resource in topic.resources.all %}
+                                        <div class="flex items-center gap-2 text-sm">
+                                            <span class="text-gray-500">{{ resource.get_resource_type_display }}:</span>
+                                            {% if resource.url %}
+                                            <a href="{{ resource.url }}" target="_blank" 
+                                               class="text-indigo-600 hover:underline">
+                                                {{ resource.title }}
+                                            </a>
+                                            {% elif resource.file %}
+                                            <a href="{{ resource.file.url }}" target="_blank" 
+                                               class="text-indigo-600 hover:underline">
+                                                {{ resource.title }}
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Notes -->
+                                {% if topic.notes %}
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 mb-2">📝 Notes:</h4>
+                                    <p class="text-sm text-gray-600 bg-yellow-50 p-3 rounded">
+                                        {{ topic.notes }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                                
+                                {% if topic.completed_at %}
+                                <div class="text-sm text-green-600 mt-2">
+                                    ✓ Completed on {{ topic.completed_at|date:"M d, Y" }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">No topics in this module</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-lg shadow-md p-12 text-center">
+        <p class="text-gray-500 text-lg">No modules found in this study plan</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Study Session Modal -->
+<div id="study-session-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h3 class="text-2xl font-bold mb-4">Study Session</h3>
+        <div class="text-center mb-6">
+            <div id="session-timer" class="text-6xl font-bold text-indigo-600">00:00:00</div>
+        </div>
+        <textarea 
+            id="session-notes" 
+            rows="4" 
+            placeholder="Add notes about your study session..."
+            class="w-full p-3 border border-gray-300 rounded-lg mb-4"
+        ></textarea>
+        <div class="flex gap-3">
+            <button onclick="endStudySession()" 
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-semibold">
+                End Session
+            </button>
+            <button onclick="closeSessionModal()" 
+                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-semibold">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSessionId = null;
+let sessionStartTime = null;
+let timerInterval = null;
+
+// Toggle topic completion
+async function toggleTopicComplete(topicId, event) {
+    const isChecked = event.target.checked;
+    
+    try {
+        const response = await fetch(`/topic/${topicId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update progress bar
+            document.getElementById('main-progress-bar').style.width = data.completion_percentage + '%';
+            
+            // Update the checkbox state in Alpine
+            event.target.dispatchEvent(new CustomEvent('topic-toggled', { 
+                detail: { isCompleted: data.is_completed } 
+            }));
+        }
+    } catch (error) {
+        console.error('Error toggling topic:', error);
+        event.target.checked = !isChecked; // Revert checkbox
+    }
+}
+
+// Start study session
+async function startStudySession(topicId) {
+    try {
+        const response = await fetch(`/session/start/${topicId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentSessionId = data.session_id;
+            sessionStartTime = new Date();
+            
+            // Show modal
+            document.getElementById('study-session-modal').classList.remove('hidden');
+            
+            // Start timer
+            startTimer();
+        }
+    } catch (error) {
+        console.error('Error starting session:', error);
+        alert('Failed to start study session');
+    }
+}
+
+// Start timer
+function startTimer() {
+    timerInterval = setInterval(() => {
+        const now = new Date();
+        const diff = now - sessionStartTime;
+        
+        const hours = Math.floor(diff / 3600000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        
+        const timerDisplay = 
+            String(hours).padStart(2, '0') + ':' +
+            String(minutes).padStart(2, '0') + ':' +
+            String(seconds).padStart(2, '0');
+        
+        document.getElementById('session-timer').textContent = timerDisplay;
+    }, 1000);
+}
+
+// End study session
+async function endStudySession() {
+    if (!currentSessionId) return;
+    
+    const notes = document.getElementById('session-notes').value;
+    
+    try {
+        const formData = new FormData();
+        formData.append('notes', notes);
+        
+        const response = await fetch(`/session/end/${currentSessionId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Session completed! Duration: ${data.duration} minutes`);
+            closeSessionModal();
+            location.reload(); // Reload to show updated time
+        }
+    } catch (error) {
+        console.error('Error ending session:', error);
+        alert('Failed to end study session');
+    }
+}
+
+// Close session modal
+function closeSessionModal() {
+    clearInterval(timerInterval);
+    document.getElementById('study-session-modal').classList.add('hidden');
+    document.getElementById('session-notes').value = '';
+    currentSessionId = null;
+    sessionStartTime = null;
+}
+
+// Calculate total topics
+document.addEventListener('DOMContentLoaded', function() {
+    const totalTopics = document.querySelectorAll('input[type="checkbox"]').length;
+    document.getElementById('total-topics').textContent = totalTopics;
+});
+</script>
+{% endblock %}
