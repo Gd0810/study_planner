@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics - Study Planner AI{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold">Study Analytics</h1>
+    <p class="text-gray-600 mt-2">Track your progress and identify patterns</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div class="flex gap-4 items-center">
+        <label class="font-semibold text-gray-700">Time Range:</label>
+        <select onchange="window.location.href='?days='+this.value" 
+                class="border border-gray-300 rounded-lg px-4 py-2">
+            <option value="7" {% if request.GET.days == '7' %}selected{% endif %}>Last 7 Days</option>
+            <option value="30" {% if request.GET.days == '30' or not request.GET.days %}selected{% endif %}>Last 30 Days</option>
+            <option value="90" {% if request.GET.days == '90' %}selected{% endif %}>Last 90 Days</option>
+        </select>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="grid md:grid-cols-2 gap-8 mb-8">
+    <!-- Daily Study Time Chart -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold mb-4">Daily Study Time</h2>
+        <canvas id="dailyStudyChart"></canvas>
+    </div>
+    
+    <!-- Domain Distribution Chart -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold mb-4">Study Time by Domain</h2>
+        <canvas id="domainChart"></canvas>
+    </div>
+    
+    <!-- Weekly Progress Chart -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold mb-4">Weekly Topics Completed</h2>
+        <canvas id="weeklyProgressChart"></canvas>
+    </div>
+    
+    <!-- Completion Rate Chart -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold mb-4">Overall Progress</h2>
+        <canvas id="completionChart"></canvas>
+    </div>
+</div>
+
+<!-- Stats Summary -->
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-bold mb-4">Summary Statistics</h2>
+    <div class="grid md:grid-cols-4 gap-6">
+        <div class="text-center">
+            <div class="text-3xl font-bold text-indigo-600">{{ daily_logs.count }}</div>
+            <div class="text-gray-600 mt-1">Study Days</div>
+        </div>
+        <div class="text-center">
+            <div class="text-3xl font-bold text-green-600">
+                {{ daily_logs|length|floatformat:0 }}
+            </div>
+            <div class="text-gray-600 mt-1">Total Sessions</div>
+        </div>
+        <div class="text-center">
+            <div class="text-3xl font-bold text-blue-600">
+                {% widthratio daily_logs.count 1 7 %}
+            </div>
+            <div class="text-gray-600 mt-1">Avg Days/Week</div>
+        </div>
+        <div class="text-center">
+            <div class="text-3xl font-bold text-orange-600">
+                {{ domain_stats.count }}
+            </div>
+            <div class="text-gray-600 mt-1">Active Domains</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Daily Study Time Chart
+const dailyStudyCtx = document.getElementById('dailyStudyChart').getContext('2d');
+const dailyStudyChart = new Chart(dailyStudyCtx, {
+    type: 'line',
+    data: {
+        labels: [
+            {% for log in daily_logs %}
+                '{{ log.date|date:"M d" }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Hours Studied',
+            data: [
+                {% for log in daily_logs %}
+                    {{ log.hours_studied }},
+                {% endfor %}
+            ],
+            borderColor: 'rgb(79, 70, 229)',
+            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Hours'
+                }
+            }
+        }
+    }
+});
+
+// Domain Distribution Chart
+const domainCtx = document.getElementById('domainChart').getContext('2d');
+const domainChart = new Chart(domainCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [
+            {% for stat in domain_stats %}
+                '{{ stat.domain }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for stat in domain_stats %}
+                    {{ stat.total_time|default:0 }},
+                {% endfor %}
+            ],
+            backgroundColor: [
+                'rgb(79, 70, 229)',
+                'rgb(139, 92, 246)',
+                'rgb(239, 68, 68)',
+                'rgb(34, 197, 94)',
+                'rgb(251, 191, 36)',
+                'rgb(59, 130, 246)',
+                'rgb(236, 72, 153)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Weekly Progress Chart
+const weeklyProgressCtx = document.getElementById('weeklyProgressChart').getContext('2d');
+const weeklyProgressChart = new Chart(weeklyProgressCtx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for week in weekly_data %}
+                '{{ week.week }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Topics Completed',
+            data: [
+                {% for week in weekly_data %}
+                    {{ week.topics }},
+                {% endfor %}
+            ],
+            backgroundColor: 'rgb(34, 197, 94)',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// Completion Rate Chart
+const completionCtx = document.getElementById('completionChart').getContext('2d');
+const completionChart = new Chart(completionCtx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for stat in domain_stats %}
+                '{{ stat.domain }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Completion %',
+            data: [
+                {% for stat in domain_stats %}
+                    {{ stat.completion|default:0|floatformat:0 }},
+                {% endfor %}
+            ],
+            backgroundColor: 'rgb(59, 130, 246)',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                    display: true,
+                    text: 'Percentage'
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

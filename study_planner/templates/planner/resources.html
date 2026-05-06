@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Resource - Study Planner AI{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Add Resource</h1>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold">{{ topic.title }}</h2>
+            <p class="text-gray-600">{{ topic.module.study_plan.title }}</p>
+        </div>
+        
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    Resource Title *
+                </label>
+                {{ form.title }}
+            </div>
+            
+            <div>
+                <label for="{{ form.resource_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    Type *
+                </label>
+                {{ form.resource_type }}
+            </div>
+            
+            <div>
+                <label for="{{ form.url.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    URL (Optional)
+                </label>
+                {{ form.url }}
+            </div>
+            
+            <div>
+                <label for="{{ form.file.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    Upload File (Optional)
+                </label>
+                {{ form.file }}
+            </div>
+            
+            <div>
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                </label>
+                {{ form.description }}
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-semibold">
+                    Add Resource
+                </button>
+                <a href="{% url 'plan_detail' topic.module.study_plan.pk %}" 
+                   class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-semibold text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    input[type="text"], input[type="url"], input[type="file"], select, textarea {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: #4f46e5;
+    }
+</style>
+{% endblock %}
